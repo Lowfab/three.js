@@ -12622,14 +12622,16 @@ THREE.ObjectLoader.prototype = {
 
 		var geometries = this.parseGeometries( json.geometries );
 
-		var images = this.parseImages( json.images, function () {
-
-			if ( onLoad !== undefined ) onLoad( object );
-
-		} );
+		var images = this.parseImages( json.images, onLoad );
 		var textures  = this.parseTextures( json.textures, images );
 		var materials = this.parseMaterials( json.materials, textures );
 		var object = this.parseObject( json.object, geometries, materials );
+
+		if ( json.images === undefined || json.images.length === 0 ) {
+
+			if ( onLoad !== undefined ) onLoad( object );
+
+		}
 
 		return object;
 
@@ -12887,10 +12889,6 @@ THREE.ObjectLoader.prototype = {
 				images[ image.uuid ] = loadImage( scope.texturePath + image.url );
 
 			}
-
-		} else {
-
-			if ( onLoad !== undefined ) onLoad();
 
 		}
 
@@ -13398,6 +13396,8 @@ THREE.Material = function () {
 
 	this.depthTest = true;
 	this.depthWrite = true;
+
+	this.colorWrite = true;
 
 	this.polygonOffset = false;
 	this.polygonOffsetFactor = 0;
@@ -21128,6 +21128,7 @@ THREE.WebGLRenderer = function ( parameters ) {
 
 		state.setDepthTest( true );
 		state.setDepthWrite( true );
+		state.setColorWrite( true );
 
 		// _gl.finish();
 
@@ -22041,6 +22042,7 @@ THREE.WebGLRenderer = function ( parameters ) {
 
 		state.setDepthTest( material.depthTest );
 		state.setDepthWrite( material.depthWrite );
+		state.setColorWrite( material.colorWrite );
 		state.setPolygonOffset( material.polygonOffset, material.polygonOffsetFactor, material.polygonOffsetUnits );
 
 	}
@@ -24629,6 +24631,8 @@ THREE.WebGLState = function ( gl, paramThreeToGL ) {
 	var currentDepthTest = null;
 	var currentDepthWrite = null;
 
+	var currentColorWrite = null;
+
 	var currentDoubleSided = null;
 	var currentFlipSided = null;
 
@@ -24790,6 +24794,17 @@ THREE.WebGLState = function ( gl, paramThreeToGL ) {
 
 	};
 
+	this.setColorWrite = function ( colorWrite ) {
+
+		if ( currentColorWrite !== colorWrite ) {
+
+			gl.colorMask( colorWrite, colorWrite, colorWrite, colorWrite );
+			currentColorWrite = colorWrite;
+
+		}
+
+	};
+
 	this.setDoubleSided = function ( doubleSided ) {
 
 		if ( currentDoubleSided !== doubleSided ) {
@@ -24882,6 +24897,7 @@ THREE.WebGLState = function ( gl, paramThreeToGL ) {
 		currentBlending = null;
 		currentDepthTest = null;
 		currentDepthWrite = null;
+		currentColorWrite = null;
 		currentDoubleSided = null;
 		currentFlipSided = null;
 
@@ -33743,9 +33759,14 @@ THREE.DirectionalLightHelper.prototype.update = function () {
  * @author WestLangley / http://github.com/WestLangley
  */
 
-THREE.EdgesHelper = function ( object, hex ) {
+THREE.EdgesHelper = function ( object, hex, thresholdAngle ) {
 
 	var color = ( hex !== undefined ) ? hex : 0xffffff;
+	thresholdAngle = ( thresholdAngle !== undefined ) ? thresholdAngle : 170;
+
+	thresholdAngle = thresholdAngle * 0.0175; //deg -> radian
+	var thresholdDot = Math.cos( thresholdAngle );
+
 
 	var edge = [ 0, 0 ], hash = {};
 	var sortFunction = function ( a, b ) { return a - b };
@@ -33808,7 +33829,7 @@ THREE.EdgesHelper = function ( object, hex ) {
 
 		var h = hash[ key ];
 
-		if ( h.face2 === undefined || faces[ h.face1 ].normal.dot( faces[ h.face2 ].normal ) < 0.9999 ) { // hardwired const OK
+		if ( h.face2 === undefined || faces[ h.face1 ].normal.dot( faces[ h.face2 ].normal ) < thresholdDot ) {
 
 			var vertex = vertices[ h.vert1 ];
 			coords[ index ++ ] = vertex.x;
