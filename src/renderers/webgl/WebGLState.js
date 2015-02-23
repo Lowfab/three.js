@@ -15,6 +15,7 @@ THREE.WebGLState = function ( gl, paramThreeToGL ) {
 	var currentBlendSrcAlpha = null;
 	var currentBlendDstAlpha = null;
 
+	var currentDepthFunc = null;
 	var currentDepthTest = null;
 	var currentDepthWrite = null;
 
@@ -144,8 +145,23 @@ THREE.WebGLState = function ( gl, paramThreeToGL ) {
 			currentBlendDst = null;
 			currentBlendEquationAlpha = null;
 			currentBlendSrcAlpha = null;
-			currentBlendDstAlpha = null;
+			currentBlendDstAlpha = null;			
 
+		}
+
+	};
+
+	this.setDepthFunc = function ( depthFunc ) {
+
+		if ( currentDepthFunc !== depthFunc ) {
+
+			if ( gl[depthFunc] !== undefined ){
+				var depthFuncConstant = gl[depthFunc];
+				gl.depthFunc( depthFuncConstant );
+				currentDepthFunc = depthFunc;
+			} else {
+				console.warn( "gl.depthFunc '" + depthFunc + "' is not defined" );
+			}
 		}
 
 	};
@@ -287,6 +303,7 @@ THREE.WebGLState = function ( gl, paramThreeToGL ) {
 		currentColorWrite = null;
 		currentDoubleSided = null;
 		currentFlipSided = null;
+		currentDepthFunc = null;		
 
 	};
 

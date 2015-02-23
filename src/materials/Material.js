@@ -26,6 +26,7 @@ THREE.Material = function () {
 	this.blendDstAlpha = null;
 	this.blendEquationAlpha = null;
 
+	this.depthFunc = 'LEQUAL';
 	this.depthTest = true;
 	this.depthWrite = true;
 

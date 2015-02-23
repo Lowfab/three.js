@@ -3417,6 +3417,7 @@ THREE.WebGLRenderer = function ( parameters ) {
 
 		state.setDepthTest( true );
 		state.setDepthWrite( true );
+		state.setDepthFunc( 'LEQUAL' );
 		state.setColorWrite( true );
 
 		// _gl.finish();
@@ -4331,7 +4332,8 @@ THREE.WebGLRenderer = function ( parameters ) {
 
 		state.setDepthTest( material.depthTest );
 		state.setDepthWrite( material.depthWrite );
-		state.setColorWrite( material.colorWrite );
+		state.setDepthFunc( material.depthFunc );
+		state.setColorWrite( material.colorWrite );		
 		state.setPolygonOffset( material.polygonOffset, material.polygonOffsetFactor, material.polygonOffsetUnits );
 
 	}
