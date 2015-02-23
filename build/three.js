@@ -13394,6 +13394,7 @@ THREE.Material = function () {
 	this.blendDstAlpha = null;
 	this.blendEquationAlpha = null;
 
+	this.depthFunc = 'LEQUAL';
 	this.depthTest = true;
 	this.depthWrite = true;
 
@@ -21128,6 +21129,7 @@ THREE.WebGLRenderer = function ( parameters ) {
 
 		state.setDepthTest( true );
 		state.setDepthWrite( true );
+		state.setDepthFunc( 'LEQUAL' );
 		state.setColorWrite( true );
 
 		// _gl.finish();
@@ -22042,7 +22044,8 @@ THREE.WebGLRenderer = function ( parameters ) {
 
 		state.setDepthTest( material.depthTest );
 		state.setDepthWrite( material.depthWrite );
-		state.setColorWrite( material.colorWrite );
+		state.setDepthFunc( material.depthFunc );
+		state.setColorWrite( material.colorWrite );		
 		state.setPolygonOffset( material.polygonOffset, material.polygonOffsetFactor, material.polygonOffsetUnits );
 
 	}
@@ -24628,6 +24631,7 @@ THREE.WebGLState = function ( gl, paramThreeToGL ) {
 	var currentBlendSrcAlpha = null;
 	var currentBlendDstAlpha = null;
 
+	var currentDepthFunc = null;
 	var currentDepthTest = null;
 	var currentDepthWrite = null;
 
@@ -24757,8 +24761,23 @@ THREE.WebGLState = function ( gl, paramThreeToGL ) {
 			currentBlendDst = null;
 			currentBlendEquationAlpha = null;
 			currentBlendSrcAlpha = null;
-			currentBlendDstAlpha = null;
+			currentBlendDstAlpha = null;			
 
+		}
+
+	};
+
+	this.setDepthFunc = function ( depthFunc ) {
+
+		if ( currentDepthFunc !== depthFunc ) {
+
+			if ( gl[depthFunc] !== undefined ){
+				var depthFuncConstant = gl[depthFunc];
+				gl.depthFunc( depthFuncConstant );
+				currentDepthFunc = depthFunc;
+			} else {
+				console.warn( "gl.depthFunc '" + depthFunc + "' is not defined" );
+			}
 		}
 
 	};
@@ -24900,6 +24919,7 @@ THREE.WebGLState = function ( gl, paramThreeToGL ) {
 		currentColorWrite = null;
 		currentDoubleSided = null;
 		currentFlipSided = null;
+		currentDepthFunc = null;		
 
 	};
 
@@ -27042,7 +27062,7 @@ THREE.FontUtils.generateShapes = function ( text, parameters ) {
 } )( THREE.FontUtils );
 
 // To use the typeface.js face files, hook up the API
-THREE.typeface_js = { faces: THREE.FontUtils.faces, loadFace: THREE.FontUtils.loadFace }
+THREE.typeface_js = { faces: THREE.FontUtils.faces, loadFace: THREE.FontUtils.loadFace };
 
 // File:src/extras/audio/Audio.js
 
