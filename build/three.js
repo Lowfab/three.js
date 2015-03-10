@@ -4,7 +4,7 @@
  * @author mrdoob / http://mrdoob.com/
  */
 
-var THREE = { REVISION: '71dev' };
+var THREE = { REVISION: '71dev-lowfabFeatures1' };
 
 // browserify support
 
@@ -27062,7 +27062,8 @@ THREE.FontUtils.generateShapes = function ( text, parameters ) {
 } )( THREE.FontUtils );
 
 // To use the typeface.js face files, hook up the API
-THREE.typeface_js = { faces: THREE.FontUtils.faces, loadFace: THREE.FontUtils.loadFace };
+self._typeface_js = { faces: THREE.FontUtils.faces, loadFace: THREE.FontUtils.loadFace };
+THREE.typeface_js = self._typeface_js;
 
 // File:src/extras/audio/Audio.js
 
@@ -33776,12 +33777,17 @@ THREE.DirectionalLightHelper.prototype.update = function () {
 
 /**
  * @author WestLangley / http://github.com/WestLangley
+ * @param object THREE.Mesh whose geometry will be used
+ * @param hex line color
+ * @param thresholdAngle the minimum difference in degree between two
+ * faces needed to create an edge. A value of 10 means that an edge is only
+ * created if two face normals are at least at a 10° angle to one another
  */
 
 THREE.EdgesHelper = function ( object, hex, thresholdAngle ) {
 
 	var color = ( hex !== undefined ) ? hex : 0xffffff;
-	thresholdAngle = ( thresholdAngle !== undefined ) ? thresholdAngle : 170;
+	thresholdAngle = ( thresholdAngle !== undefined ) ? thresholdAngle : 10;
 
 	thresholdAngle = thresholdAngle * 0.0175; //deg -> radian
 	var thresholdDot = Math.cos( thresholdAngle );
@@ -33848,7 +33854,7 @@ THREE.EdgesHelper = function ( object, hex, thresholdAngle ) {
 
 		var h = hash[ key ];
 
-		if ( h.face2 === undefined || faces[ h.face1 ].normal.dot( faces[ h.face2 ].normal ) < thresholdDot ) {
+		if ( h.face2 === undefined || faces[ h.face1 ].normal.dot( faces[ h.face2 ].normal ) <= thresholdDot ) {
 
 			var vertex = vertices[ h.vert1 ];
 			coords[ index ++ ] = vertex.x;
