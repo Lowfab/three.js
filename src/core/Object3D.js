@@ -19,8 +19,6 @@ THREE.Object3D = function () {
 
 	this.up = THREE.Object3D.DefaultUp.clone();
 
-	var scope = this;
-
 	var position = new THREE.Vector3();
 	var rotation = new THREE.Euler();
 	var quaternion = new THREE.Quaternion();
@@ -53,7 +51,7 @@ THREE.Object3D = function () {
 		scale: {
 			enumerable: true,
 			value: scale
-		},
+		}
 	} );
 
 	this.rotationAutoUpdate = true;
@@ -698,6 +696,8 @@ THREE.Object3D.prototype = {
 
 				data.geometry = parseGeometry( object.geometry );
 				data.material = parseMaterial( object.material );
+
+				if ( object instanceof THREE.Line ) data.mode = object.mode;
 
 			} else if ( object instanceof THREE.Sprite ) {
 
