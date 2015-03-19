@@ -25,6 +25,7 @@ THREE.WebGLRenderer = function ( parameters ) {
 	_premultipliedAlpha = parameters.premultipliedAlpha !== undefined ? parameters.premultipliedAlpha : true,
 	_preserveDrawingBuffer = parameters.preserveDrawingBuffer !== undefined ? parameters.preserveDrawingBuffer : false,
 	_logarithmicDepthBuffer = parameters.logarithmicDepthBuffer !== undefined ? parameters.logarithmicDepthBuffer : false,
+	_additionalExtensions = parameters.additionalExtensions !== undefined ? parameters.additionalExtensions : [],
 
 	_clearColor = new THREE.Color( 0x000000 ),
 	_clearAlpha = 0;
@@ -223,6 +224,11 @@ THREE.WebGLRenderer = function ( parameters ) {
 	extensions.get( 'OES_texture_half_float_linear' );
 	extensions.get( 'OES_standard_derivatives' );
 	extensions.get( 'WEBGL_depth_texture' );
+
+	// Enable additional extensions specified by the user
+	for (var i = 0; i < _additionalExtensions.length; i++ ){
+		extensions.get( _additionalExtensions[i] );	
+	}
 
 	if ( _logarithmicDepthBuffer ) {
 
