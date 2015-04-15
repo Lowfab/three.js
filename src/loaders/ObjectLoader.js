@@ -5,6 +5,7 @@
 THREE.ObjectLoader = function ( manager ) {
 
 	this.manager = ( manager !== undefined ) ? manager : THREE.DefaultLoadingManager;
+	this.texturePath = '';
 
 };
 
@@ -14,7 +15,7 @@ THREE.ObjectLoader.prototype = {
 
 	load: function ( url, onLoad, onProgress, onError ) {
 
-		if ( this.texturePath === undefined ) {
+		if ( this.texturePath === '' ) {
 
 			this.texturePath = url.substring( 0, url.lastIndexOf( '/' ) + 1 );
 
@@ -48,7 +49,11 @@ THREE.ObjectLoader.prototype = {
 
 		var geometries = this.parseGeometries( json.geometries );
 
-		var images = this.parseImages( json.images, onLoad );
+		var images = this.parseImages( json.images, function () {
+
+			if ( onLoad !== undefined ) onLoad( object );
+
+		} );
 		var textures  = this.parseTextures( json.textures, images );
 		var materials = this.parseMaterials( json.materials, textures );
 		var object = this.parseObject( json.object, geometries, materials );
@@ -80,8 +85,9 @@ THREE.ObjectLoader.prototype = {
 				switch ( data.type ) {
 
 					case 'PlaneGeometry':
+					case 'PlaneBufferGeometry':
 
-						geometry = new THREE.PlaneGeometry(
+						geometry = new THREE[ data.type ](
 							data.width,
 							data.height,
 							data.widthSegments,
@@ -177,7 +183,7 @@ THREE.ObjectLoader.prototype = {
 
 					case 'BufferGeometry':
 
-						geometry = bufferGeometryLoader.parse( data.data );
+						geometry = bufferGeometryLoader.parse( data );
 
 						break;
 
@@ -185,6 +191,15 @@ THREE.ObjectLoader.prototype = {
 
 						geometry = geometryLoader.parse( data.data ).geometry;
 
+						break;
+						
+					case 'TextGeometry':
+					
+						geometry = new THREE.TextGeometry(
+							data.text,
+							data.data
+						); 
+						
 						break;
 
 				}
@@ -241,6 +256,9 @@ THREE.ObjectLoader.prototype = {
 				if ( data.bumpMap !== undefined ) {
 
 					material.bumpMap = getTexture( data.bumpMap );
+					if ( data.bumpScale !== undefined ) {
+						material.bumpScale = data.bumpScale;
+					}
 
 				}
 
@@ -259,6 +277,9 @@ THREE.ObjectLoader.prototype = {
 				if ( data.normalMap !== undefined ) {
 
 					material.normalMap = getTexture( data.normalMap );
+					if ( data.normalScale !== undefined ) {
+						material.normalScale = new THREE.Vector2( data.normalScale, data.normalScale );
+					}
 
 				}
 
@@ -266,6 +287,18 @@ THREE.ObjectLoader.prototype = {
 
 					material.lightMap = getTexture( data.lightMap );
 
+					if ( data.lightMapIntensity !== undefined ) {
+						material.lightMapIntensity = data.lightMapIntensity;
+					}
+
+				}
+
+				if ( data.aoMap !== undefined ) {
+
+					material.aoMap = getTexture( data.aoMap );
+					if ( data.aoMapIntensity !== undefined ) {
+						material.aoMapIntensity = data.aoMapIntensity;
+					}
 				}
 
 				if ( data.specularMap !== undefined ) {
@@ -311,8 +344,9 @@ THREE.ObjectLoader.prototype = {
 			for ( var i = 0, l = json.length; i < l; i ++ ) {
 
 				var image = json[ i ];
+				var path = /^(\/\/)|([a-z]+:(\/\/)?)/i.test( image.url ) ? image.url : scope.texturePath + image.url;
 
-				images[ image.uuid ] = loadImage( scope.texturePath + image.url );
+				images[ image.uuid ] = loadImage( path );
 
 			}
 
@@ -461,7 +495,7 @@ THREE.ObjectLoader.prototype = {
 
 				case 'Line':
 
-					object = new THREE.Line( getGeometry( data.geometry ), getMaterial( data.material ) );
+					object = new THREE.Line( getGeometry( data.geometry ), getMaterial( data.material ), data.mode );
 
 					break;
 
@@ -504,6 +538,9 @@ THREE.ObjectLoader.prototype = {
 				if ( data.scale !== undefined ) object.scale.fromArray( data.scale );
 
 			}
+
+			if ( data.castShadow !== undefined ) object.castShadow = data.castShadow;
+			if ( data.receiveShadow !== undefined ) object.receiveShadow = data.receiveShadow;
 
 			if ( data.visible !== undefined ) object.visible = data.visible;
 			if ( data.userData !== undefined ) object.userData = data.userData;
