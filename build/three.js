@@ -4368,7 +4368,7 @@ THREE.Matrix3.prototype = {
 
 			}
 
-			return array;
+			return buffer;
 
 		};
 
@@ -5055,7 +5055,7 @@ THREE.Matrix4.prototype = {
 
 			}
 
-			return array;
+			return buffer;
 
 		};
 
@@ -26421,7 +26421,13 @@ THREE.FontUtils.generateShapes = function ( text, parameters ) {
 } )( THREE.FontUtils );
 
 // To use the typeface.js face files, hook up the API
-THREE.typeface_js = { faces: THREE.FontUtils.faces, loadFace: THREE.FontUtils.loadFace };
+var typeface_js = { faces: THREE.FontUtils.faces, loadFace: THREE.FontUtils.loadFace };
+if ( typeof self != 'undefined' ){
+	self._typeface_js = typeface_js
+}
+THREE.typeface_js = typeface_js
+
+
 
 // File:src/extras/audio/Audio.js
 
@@ -31687,7 +31693,7 @@ THREE.SphereBufferGeometry = function ( radius, widthSegments, heightSegments, p
 	var uvs = new THREE.InterleavedBufferAttribute( vertexBuffer, 2, 6 );
 	this.addAttribute( 'uv', uvs );
 
-	var x, y, u, v, px, py, px, index = 0, vertices = [], normal = new THREE.Vector3();
+	var x, y, u, v, px, py, pz, index = 0, vertices = [], normal = new THREE.Vector3();
 
 	for ( y = 0; y <= heightSegments; y ++ ) {
 
@@ -31720,7 +31726,7 @@ THREE.SphereBufferGeometry = function ( radius, widthSegments, heightSegments, p
 	}
 
 	var indices = [];
-	
+	var ul;
 	for ( y = 0, ul = heightSegments - 1; y < ul; y++ ) {
 
 		for ( x = 0; x < widthSegments; x++ ) {
