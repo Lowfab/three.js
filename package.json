@@ -1,0 +1,14 @@
+{
+"name": "three",
+"version": "0.0.71",
+"description": "lowfab fork of three.js",
+"homepage": "http://lowfab.net",
+"dependencies": {},
+"devDependencies": {},
+"scripts": {},
+"repository": {
+"type": "git",
+"url": "https://github.com/Lowfab/three.js.git"
+},
+"main": "build/three.js"
+}
