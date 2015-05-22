@@ -2,14 +2,14 @@
  * @author mrdoob / http://mrdoob.com/
  */
 
-THREE.DynamicGeometry = function () {
+THREE.DirectGeometry = function () {
 
 	Object.defineProperty( this, 'id', { value: THREE.GeometryIdCount ++ } );
 
 	this.uuid = THREE.Math.generateUUID();
 
 	this.name = '';
-	this.type = 'DynamicGeometry';
+	this.type = 'DirectGeometry';
 
 	this.vertices = [];
 	this.colors = [];
@@ -18,18 +18,7 @@ THREE.DynamicGeometry = function () {
 	this.uvs = [];
 	this.faces = [];
 
-	/*
-
-	this.morphTargets = [];
-	this.morphColors = [];
-	this.morphNormals = [];
-
-	this.skinWeights = [];
-	this.skinIndices = [];
-
-	this.lineDistances = [];
-
-	*/
+	// this.lineDistances = [];
 
 	this.boundingBox = null;
 	this.boundingSphere = null;
@@ -43,23 +32,23 @@ THREE.DynamicGeometry = function () {
 
 };
 
-THREE.DynamicGeometry.prototype = {
+THREE.DirectGeometry.prototype = {
 
-	constructor: THREE.DynamicGeometry,
+	constructor: THREE.DirectGeometry,
 
 	computeBoundingBox: THREE.Geometry.prototype.computeBoundingBox,
 	computeBoundingSphere: THREE.Geometry.prototype.computeBoundingSphere,
 
 	computeFaceNormals: function () {
 
-		THREE.warn( 'THREE.DynamicGeometry: computeFaceNormals() is not a method of this type of geometry.' );
+		console.warn( 'THREE.DirectGeometry: computeFaceNormals() is not a method of this type of geometry.' );
 		return this;
 
 	},
 
 	computeVertexNormals: function () {
 
-		THREE.warn( 'THREE.DynamicGeometry: computeVertexNormals	() is not a method of this type of geometry.' );
+		console.warn( 'THREE.DirectGeometry: computeVertexNormals() is not a method of this type of geometry.' );
 		return this;
 
 	},
@@ -93,6 +82,13 @@ THREE.DynamicGeometry.prototype = {
 
 			}
 
+			if ( vertexUvs === undefined ) {
+
+				console.warn( 'THREE.DirectGeometry.fromGeometry(): Missing vertexUVs', i );
+				vertexUvs = [ new THREE.Vector2(), new THREE.Vector2(), new THREE.Vector2() ];
+
+			}
+
 			for ( var j = 0, jl = vertexUvs.length; j < jl; j ++ ) {
 
 				this.uvs[ indices[ j ] ] = vertexUvs[ j ];
@@ -100,6 +96,13 @@ THREE.DynamicGeometry.prototype = {
 			}
 
 		}
+
+		if ( geometry.morphTargets ) this.morphTargets = geometry.morphTargets.slice( 0 );
+		if ( geometry.morphColors ) this.morphColors = geometry.morphColors.slice( 0 );
+		if ( geometry.morphNormals ) this.morphNormals = geometry.morphNormals.slice( 0 );
+
+		if ( geometry.skinIndices ) this.skinIndices = geometry.skinIndices.slice( 0 );
+		if ( geometry.skinWeights ) this.skinWeights = geometry.skinWeights.slice( 0 );
 
 		return this;
 
@@ -113,4 +116,4 @@ THREE.DynamicGeometry.prototype = {
 
 };
 
-THREE.EventDispatcher.prototype.apply( THREE.DynamicGeometry.prototype );
+THREE.EventDispatcher.prototype.apply( THREE.DirectGeometry.prototype );

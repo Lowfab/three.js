@@ -7,10 +7,9 @@ THREE.WebGLObjects = function ( gl, info ) {
 	var objects = {};
 	var objectsImmediate = [];
 
-	var geometries = new THREE.WebGLGeometries( gl, info );
+	var morphInfluences = new Float32Array( 8 );
 
-	var geometryGroups = {};
-	var geometryGroupCounter = 0;
+	var geometries = new THREE.WebGLGeometries( gl, info );
 
 	//
 
@@ -82,7 +81,7 @@ THREE.WebGLObjects = function ( gl, info ) {
 
 		}
 
-		if ( object.__webglActive === undefined) {
+		if ( object.__webglActive === undefined ) {
 
 			object.__webglActive = true;
 
@@ -91,7 +90,6 @@ THREE.WebGLObjects = function ( gl, info ) {
 				objects[ object.id ] = {
 					id: object.id,
 					object: object,
-					material: null,
 					z: 0
 				};
 
@@ -111,30 +109,82 @@ THREE.WebGLObjects = function ( gl, info ) {
 
 	};
 
-	this.update = function ( object ) {
+	function numericalSort ( a, b ) {
+
+		return b[ 0 ] - a[ 0 ];
+
+	}
+
+	function updateObject( object ) {
 
 		var geometry = geometries.get( object );
 
-		if ( object.geometry instanceof THREE.DynamicGeometry ) {
+		if ( object.geometry instanceof THREE.DirectGeometry ) {
 
 			geometry.updateFromObject( object );
 
 		}
 
-		geometry.updateFromMaterial( object.material );
+		// morph targets
+
+		if ( object.morphTargetInfluences !== undefined ) {
+
+			var activeInfluences = [];
+			var morphTargetInfluences = object.morphTargetInfluences;
+
+			for ( var i = 0, l = morphTargetInfluences.length; i < l; i ++ ) {
+
+				var influence = morphTargetInfluences[ i ];
+				activeInfluences.push( [ influence, i ] );
+
+			}
+
+			activeInfluences.sort( numericalSort );
+
+			if ( activeInfluences.length > 8 ) {
+
+				activeInfluences.length = 8;
+
+			}
+
+			for ( var i = 0, l = activeInfluences.length; i < l; i ++ ) {
+
+				morphInfluences[ i ] = activeInfluences[ i ][ 0 ];
+
+				var attribute = geometry.morphAttributes[ activeInfluences[ i ][ 1 ] ];
+				geometry.addAttribute( 'morphTarget' + i, attribute );
+
+			}
+
+			var material = object.material;
+
+			if ( material.program !== undefined ) {
+
+				if ( material.program.uniforms.morphTargetInfluences !== null ) {
+
+					gl.uniform1fv( material.program.uniforms.morphTargetInfluences, morphInfluences );
+
+				}
+
+			} else {
+
+				console.warn( 'TOFIX: material.program is undefined' );
+
+			}
+
+		}
 
 		//
 
 		if ( geometry instanceof THREE.BufferGeometry ) {
 
 			var attributes = geometry.attributes;
-			var attributesKeys = geometry.attributesKeys;
 
-			for ( var i = 0, l = attributesKeys.length; i < l; i ++ ) {
+			for ( var name in attributes ) {
 
-				var key = attributesKeys[ i ];
-				var attribute = attributes[ key ];
-				var bufferType = ( key === 'index' ) ? gl.ELEMENT_ARRAY_BUFFER : gl.ARRAY_BUFFER;
+				var attribute = attributes[ name ];
+
+				var bufferType = ( name === 'index' ) ? gl.ELEMENT_ARRAY_BUFFER : gl.ARRAY_BUFFER;
 
 				var data = ( attribute instanceof THREE.InterleavedBufferAttribute ) ? attribute.data : attribute;
 
@@ -167,7 +217,7 @@ THREE.WebGLObjects = function ( gl, info ) {
 
 					} else if ( data.updateRange.count === 0 ) {
 
-						THREE.error( 'THREE.WebGLRenderer.updateObject: using updateRange for THREE.DynamicBufferAttribute and marked as needsUpdate but count is 0, ensure you are using set methods or updating manually.' );
+						console.error( 'THREE.WebGLRenderer.updateObject: using updateRange for THREE.DynamicBufferAttribute and marked as needsUpdate but count is 0, ensure you are using set methods or updating manually.' );
 
 					} else {
 
@@ -181,6 +231,22 @@ THREE.WebGLObjects = function ( gl, info ) {
 					data.needsUpdate = false;
 
 				}
+
+			}
+
+		}
+
+	};
+
+	this.update = function ( renderList ) {
+
+		for ( var i = 0, ul = renderList.length; i < ul; i++ ) {
+
+			var object = renderList[i].object;
+
+			if ( object.material.visible !== false ) {
+
+				updateObject( object );
 
 			}
 
