@@ -4,7 +4,7 @@
  * @author mrdoob / http://mrdoob.com/
  */
 
-var THREE = { REVISION: '72dev' };
+var THREE = { REVISION: '72dev-withDepthTextures-build20150522' };
 
 // browserify support
 
