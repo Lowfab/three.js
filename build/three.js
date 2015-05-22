@@ -15881,6 +15881,39 @@ THREE.VideoTexture = function ( video, mapping, wrapS, wrapT, magFilter, minFilt
 THREE.VideoTexture.prototype = Object.create( THREE.Texture.prototype );
 THREE.VideoTexture.prototype.constructor = THREE.VideoTexture;
 
+// File:src/textures/DepthTexture.js
+
+/**
+ * @author Marius Kintel / https://github.com/kintel
+ */
+
+THREE.DepthTexture = function ( width, height, hasStencil ) {
+
+	var format = hasStencil ? THREE.DepthStencilFormat : THREE.DepthFormat;
+	var type = hasStencil ? THREE.UnsignedInt24_8Type : THREE.UnsignedIntType;
+
+	THREE.Texture.call( this, null, THREE.Texture.DEFAULT_MAPPING, THREE.ClampToEdgeWrapping, THREE.ClampToEdgeWrapping, THREE.NearestFilter, THREE.NearestFilter, format, type );
+
+	this.width = width;
+	this.height = height;
+
+};
+
+THREE.DepthTexture.prototype = Object.create( THREE.Texture.prototype );
+
+THREE.DepthTexture.prototype.clone = function () {
+
+	var texture = new THREE.DepthTexture();
+
+	THREE.Texture.prototype.clone.call( this, texture );
+
+	texture.width = this.width;	
+	texture.height = this.height;
+
+	return texture;
+
+};
+
 // File:src/objects/Group.js
 
 /**
@@ -19125,6 +19158,7 @@ THREE.WebGLRenderer = function ( parameters ) {
 	extensions.get( 'OES_texture_half_float' );
 	extensions.get( 'OES_texture_half_float_linear' );
 	extensions.get( 'OES_standard_derivatives' );
+	extensions.get( 'WEBGL_depth_texture' );
 	extensions.get( 'ANGLE_instanced_arrays' );
 
 	if ( extensions.get( 'OES_element_index_uint' ) ) {
@@ -19321,6 +19355,12 @@ THREE.WebGLRenderer = function ( parameters ) {
 	this.supportsHalfFloatTextures = function () {
 
 		return extensions.get( 'OES_texture_half_float' );
+
+	};
+
+	this.supportsDepthTextures = function () {
+
+		return extensions.get( 'WEBGL_depth_texture' );
 
 	};
 
@@ -19588,9 +19628,9 @@ THREE.WebGLRenderer = function ( parameters ) {
 
 	var deallocateRenderTarget = function ( renderTarget ) {
 
-		if ( ! renderTarget || renderTarget.__webglTexture === undefined ) return;
+		if ( ! renderTarget || renderTarget.texture.__webglTexture === undefined ) return;
 
-		_gl.deleteTexture( renderTarget.__webglTexture );
+		_gl.deleteTexture( renderTarget.texture.__webglTexture );
 
 		delete renderTarget.__webglTexture;
 
@@ -19598,15 +19638,15 @@ THREE.WebGLRenderer = function ( parameters ) {
 
 			for ( var i = 0; i < 6; i ++ ) {
 
-				_gl.deleteFramebuffer( renderTarget.__webglFramebuffer[ i ] );
-				_gl.deleteRenderbuffer( renderTarget.__webglRenderbuffer[ i ] );
+				_gl.deleteFramebuffer( renderTarget.texture.__webglFramebuffer[ i ] );
+				if (renderTarget.__webglRenderbuffer) _gl.deleteRenderbuffer( renderTarget.__webglRenderbuffer[ i ] );
 
 			}
 
 		} else {
 
-			_gl.deleteFramebuffer( renderTarget.__webglFramebuffer );
-			_gl.deleteRenderbuffer( renderTarget.__webglRenderbuffer );
+			_gl.deleteFramebuffer( renderTarget.texture.__webglFramebuffer );
+			if (renderTarget.__webglRenderbuffer) _gl.deleteRenderbuffer( renderTarget.__webglRenderbuffer );
 
 		}
 
@@ -20537,7 +20577,7 @@ THREE.WebGLRenderer = function ( parameters ) {
 
 		// Generate mipmap if we're using any kind of mipmap filtering
 
-		if ( renderTarget && renderTarget.generateMipmaps && renderTarget.minFilter !== THREE.NearestFilter && renderTarget.minFilter !== THREE.LinearFilter ) {
+		if ( renderTarget && renderTarget.generateMipmaps && renderTarget.texture.minFilter !== THREE.NearestFilter && renderTarget.texture.minFilter !== THREE.LinearFilter ) {
 
 			updateRenderTargetMipmap( renderTarget );
 
@@ -21264,6 +21304,8 @@ THREE.WebGLRenderer = function ( parameters ) {
 
 		if ( uvScaleMap !== undefined ) {
 
+			if ( uvScaleMap instanceof THREE.WebGLRenderTarget ) uvScaleMap = uvScaleMap.texture;
+
 			var offset = uvScaleMap.offset;
 			var repeat = uvScaleMap.repeat;
 
@@ -21760,7 +21802,11 @@ THREE.WebGLRenderer = function ( parameters ) {
 
 					} else if ( texture instanceof THREE.WebGLRenderTargetCube ) {
 
-						setCubeTextureDynamic( texture, textureUnit );
+						setCubeTextureDynamic( texture.texture, textureUnit );
+
+					} else if ( texture instanceof THREE.WebGLRenderTarget ) {
+
+						_this.setTexture( texture.texture, textureUnit );
 
 					} else {
 
@@ -22402,14 +22448,14 @@ THREE.WebGLRenderer = function ( parameters ) {
 
 	// Render targets
 
-	function setupFrameBuffer ( framebuffer, renderTarget, textureTarget ) {
+	function setupFrameBufferTexture ( framebuffer, texture, attachment, textureTarget ) {
 
 		_gl.bindFramebuffer( _gl.FRAMEBUFFER, framebuffer );
-		_gl.framebufferTexture2D( _gl.FRAMEBUFFER, _gl.COLOR_ATTACHMENT0, textureTarget, renderTarget.__webglTexture, 0 );
+		_gl.framebufferTexture2D( _gl.FRAMEBUFFER, attachment, textureTarget, texture, 0 );
 
 	}
 
-	function setupRenderBuffer ( renderbuffer, renderTarget ) {
+	function setupRenderBufferStorage ( renderbuffer, renderTarget ) {
 
 		_gl.bindRenderbuffer( _gl.RENDERBUFFER, renderbuffer );
 
@@ -22437,45 +22483,106 @@ THREE.WebGLRenderer = function ( parameters ) {
 
 	}
 
+	function setupDepthRenderbuffer(renderTarget) {
+			
+		var isCube = ( renderTarget instanceof THREE.WebGLRenderTargetCube );
+		if ( isCube ) {
+
+			renderTarget.__webglRenderbuffer = [];
+			for ( var i = 0; i < 6; i ++ ) {
+
+				renderTarget.__webglRenderbuffer[ i ] = _gl.createRenderbuffer();
+				setupRenderBufferStorage( renderTarget.__webglRenderbuffer[ i ], renderTarget );
+
+			}
+
+		}
+		else {
+
+			if ( renderTarget.shareDepthFrom ) {
+				
+				renderTarget.__webglRenderbuffer = renderTarget.shareDepthFrom.__webglRenderbuffer;
+				if ( renderTarget.depthBuffer && ! renderTarget.stencilBuffer ) {
+					
+					_gl.framebufferRenderbuffer( _gl.FRAMEBUFFER, _gl.DEPTH_ATTACHMENT, _gl.RENDERBUFFER, renderTarget.__webglRenderbuffer );
+					
+				} else if ( renderTarget.depthBuffer && renderTarget.stencilBuffer ) {
+					
+					_gl.framebufferRenderbuffer( _gl.FRAMEBUFFER, _gl.DEPTH_STENCIL_ATTACHMENT, _gl.RENDERBUFFER, renderTarget.__webglRenderbuffer );
+					
+				}
+				
+			} else {
+				
+				renderTarget.__webglRenderbuffer = _gl.createRenderbuffer();
+				setupRenderBufferStorage( renderTarget.__webglRenderbuffer, renderTarget );
+				
+			}
+			
+		}
+		
+		_gl.bindRenderbuffer( _gl.RENDERBUFFER, null );
+
+	};
+
+	function setupDepthTexture(renderTarget) {
+
+		var depthTexture = renderTarget.depthTexture;
+		var isPowerOfTwo = THREE.Math.isPowerOfTwo( depthTexture.width ) && THREE.Math.isPowerOfTwo( depthTexture.height );
+
+		depthTexture.__webglTexture = _gl.createTexture();
+		_gl.bindTexture(_gl.TEXTURE_2D, depthTexture.__webglTexture);
+		setTextureParameters(_gl.TEXTURE_2D, depthTexture, isPowerOfTwo);
+
+		if ( renderTarget.depthBuffer && ! renderTarget.stencilBuffer ) {
+
+			_gl.texImage2D(_gl.TEXTURE_2D, 0, _gl.DEPTH_COMPONENT, depthTexture.width, depthTexture.height, 0, _gl.DEPTH_COMPONENT, _gl.UNSIGNED_INT, null);
+			_gl.framebufferTexture2D(_gl.FRAMEBUFFER, _gl.DEPTH_ATTACHMENT, _gl.TEXTURE_2D, depthTexture.__webglTexture, 0);
+
+		} else if ( renderTarget.stencilBuffer ) {
+			
+			_gl.texImage2D(_gl.TEXTURE_2D, 0, _gl.DEPTH_STENCIL, depthTexture.width, depthTexture.height, 0, _gl.DEPTH_STENCIL, extensions.get('WEBGL_depth_texture').UNSIGNED_INT_24_8_WEBGL, null);
+    		_gl.framebufferTexture2D(_gl.FRAMEBUFFER, _gl.DEPTH_STENCIL_ATTACHMENT, _gl.TEXTURE_2D, depthTexture.__webglTexture, 0);
+
+		}
+
+		_gl.bindTexture(_gl.TEXTURE_2D, null);
+
+	};
+
 	this.setRenderTarget = function ( renderTarget ) {
 
 		var isCube = ( renderTarget instanceof THREE.WebGLRenderTargetCube );
 
 		if ( renderTarget && renderTarget.__webglFramebuffer === undefined ) {
 
-			if ( renderTarget.depthBuffer === undefined ) renderTarget.depthBuffer = true;
-			if ( renderTarget.stencilBuffer === undefined ) renderTarget.stencilBuffer = true;
-
 			renderTarget.addEventListener( 'dispose', onRenderTargetDispose );
 
-			renderTarget.__webglTexture = _gl.createTexture();
+			renderTarget.texture.__webglTexture = _gl.createTexture();
 
 			_this.info.memory.textures ++;
 
-			// Setup texture, create render and frame buffers
-
+			//
+			// Setup color buffer
+			//
 			var isTargetPowerOfTwo = THREE.Math.isPowerOfTwo( renderTarget.width ) && THREE.Math.isPowerOfTwo( renderTarget.height ),
-				glFormat = paramThreeToGL( renderTarget.format ),
-				glType = paramThreeToGL( renderTarget.type );
+				glFormat = paramThreeToGL( renderTarget.texture.format ),
+				glType = paramThreeToGL( renderTarget.texture.type );
 
 			if ( isCube ) {
 
 				renderTarget.__webglFramebuffer = [];
-				renderTarget.__webglRenderbuffer = [];
 
-				state.bindTexture( _gl.TEXTURE_CUBE_MAP, renderTarget.__webglTexture );
-
-				setTextureParameters( _gl.TEXTURE_CUBE_MAP, renderTarget, isTargetPowerOfTwo );
+				state.bindTexture( _gl.TEXTURE_CUBE_MAP, renderTarget.texture.__webglTexture );
+				setTextureParameters( _gl.TEXTURE_CUBE_MAP, renderTarget.texture, isTargetPowerOfTwo );
 
 				for ( var i = 0; i < 6; i ++ ) {
 
 					renderTarget.__webglFramebuffer[ i ] = _gl.createFramebuffer();
-					renderTarget.__webglRenderbuffer[ i ] = _gl.createRenderbuffer();
 
 					state.texImage2D( _gl.TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, glFormat, renderTarget.width, renderTarget.height, 0, glFormat, glType, null );
 
-					setupFrameBuffer( renderTarget.__webglFramebuffer[ i ], renderTarget, _gl.TEXTURE_CUBE_MAP_POSITIVE_X + i );
-					setupRenderBuffer( renderTarget.__webglRenderbuffer[ i ], renderTarget );
+					setupFrameBufferTexture( renderTarget.__webglFramebuffer[ i ], renderTarget.texture.__webglTexture, _gl.COLOR_ATTACHMENT0, _gl.TEXTURE_CUBE_MAP_POSITIVE_X + i );
 
 				}
 
@@ -22485,46 +22592,18 @@ THREE.WebGLRenderer = function ( parameters ) {
 
 				renderTarget.__webglFramebuffer = _gl.createFramebuffer();
 
-				if ( renderTarget.shareDepthFrom ) {
-
-					renderTarget.__webglRenderbuffer = renderTarget.shareDepthFrom.__webglRenderbuffer;
-
-				} else {
-
-					renderTarget.__webglRenderbuffer = _gl.createRenderbuffer();
-
-				}
-
-				state.bindTexture( _gl.TEXTURE_2D, renderTarget.__webglTexture );
+				state.bindTexture( _gl.TEXTURE_2D, renderTarget.texture.__webglTexture );
 				setTextureParameters( _gl.TEXTURE_2D, renderTarget, isTargetPowerOfTwo );
 
 				state.texImage2D( _gl.TEXTURE_2D, 0, glFormat, renderTarget.width, renderTarget.height, 0, glFormat, glType, null );
 
-				setupFrameBuffer( renderTarget.__webglFramebuffer, renderTarget, _gl.TEXTURE_2D );
-
-				if ( renderTarget.shareDepthFrom ) {
-
-					if ( renderTarget.depthBuffer && ! renderTarget.stencilBuffer ) {
-
-						_gl.framebufferRenderbuffer( _gl.FRAMEBUFFER, _gl.DEPTH_ATTACHMENT, _gl.RENDERBUFFER, renderTarget.__webglRenderbuffer );
-
-					} else if ( renderTarget.depthBuffer && renderTarget.stencilBuffer ) {
-
-						_gl.framebufferRenderbuffer( _gl.FRAMEBUFFER, _gl.DEPTH_STENCIL_ATTACHMENT, _gl.RENDERBUFFER, renderTarget.__webglRenderbuffer );
-
-					}
-
-				} else {
-
-					setupRenderBuffer( renderTarget.__webglRenderbuffer, renderTarget );
-
-				}
+				setupFrameBufferTexture( renderTarget.__webglFramebuffer, renderTarget.texture.__webglTexture, _gl.COLOR_ATTACHMENT0, _gl.TEXTURE_2D );
 
 				if ( renderTarget.generateMipmaps && isTargetPowerOfTwo ) _gl.generateMipmap( _gl.TEXTURE_2D );
 
 			}
 
-			// Release everything
+			// Release textures
 
 			if ( isCube ) {
 
@@ -22536,7 +22615,19 @@ THREE.WebGLRenderer = function ( parameters ) {
 
 			}
 
-			_gl.bindRenderbuffer( _gl.RENDERBUFFER, null );
+			//
+			// Setup depth and stencil buffers
+			//
+			if ( renderTarget.depthBuffer === undefined ) renderTarget.depthBuffer = true;
+			if ( renderTarget.stencilBuffer === undefined ) renderTarget.stencilBuffer = true;
+
+			if (renderTarget.depthBuffer || renderTarget.stencilBuffer) {
+
+				if ( renderTarget.depthTexture && this.supportsDepthTextures() ) setupDepthTexture(renderTarget);
+				else setupDepthRenderbuffer(renderTarget);
+
+			}
+
 			_gl.bindFramebuffer( _gl.FRAMEBUFFER, null );
 
 		}
@@ -22639,13 +22730,13 @@ THREE.WebGLRenderer = function ( parameters ) {
 
 		if ( renderTarget instanceof THREE.WebGLRenderTargetCube ) {
 
-			state.bindTexture( _gl.TEXTURE_CUBE_MAP, renderTarget.__webglTexture );
+			state.bindTexture( _gl.TEXTURE_CUBE_MAP, renderTarget.texture.__webglTexture );
 			_gl.generateMipmap( _gl.TEXTURE_CUBE_MAP );
 			state.bindTexture( _gl.TEXTURE_CUBE_MAP, null );
 
 		} else {
 
-			state.bindTexture( _gl.TEXTURE_2D, renderTarget.__webglTexture );
+			state.bindTexture( _gl.TEXTURE_2D, renderTarget.texture.__webglTexture );
 			_gl.generateMipmap( _gl.TEXTURE_2D );
 			state.bindTexture( _gl.TEXTURE_2D, null );
 
@@ -22936,22 +23027,49 @@ THREE.WebGLRenderTarget = function ( width, height, options ) {
 
 	options = options || {};
 
-	this.wrapS = options.wrapS !== undefined ? options.wrapS : THREE.ClampToEdgeWrapping;
-	this.wrapT = options.wrapT !== undefined ? options.wrapT : THREE.ClampToEdgeWrapping;
+	this.texture = options.texture;
+	if (!this.texture) {
 
-	this.magFilter = options.magFilter !== undefined ? options.magFilter : THREE.LinearFilter;
-	this.minFilter = options.minFilter !== undefined ? options.minFilter : THREE.LinearMipMapLinearFilter;
+		this.texture = {
 
-	this.anisotropy = options.anisotropy !== undefined ? options.anisotropy : 1;
+			wrapS: options.wrapS !== undefined ? options.wrapS : THREE.ClampToEdgeWrapping,
+			wrapT: options.wrapT !== undefined ? options.wrapT : THREE.ClampToEdgeWrapping,
+			magFilter: options.magFilter !== undefined ? options.magFilter : THREE.LinearFilter,
+			minFilter: options.minFilter !== undefined ? options.minFilter : THREE.LinearMipMapLinearFilter,
+			anisotropy: options.anisotropy !== undefined ? options.anisotropy : 1,
+			offset: new THREE.Vector2( 0, 0 ),
+			repeat: new THREE.Vector2( 1, 1 ),
+			format: options.format !== undefined ? options.format : THREE.RGBAFormat,
+			type: options.type !== undefined ? options.type : THREE.UnsignedByteType,
 
-	this.offset = new THREE.Vector2( 0, 0 );
-	this.repeat = new THREE.Vector2( 1, 1 );
+			clone: function () {
 
-	this.format = options.format !== undefined ? options.format : THREE.RGBAFormat;
-	this.type = options.type !== undefined ? options.type : THREE.UnsignedByteType;
+				var tmp = {};
+				tmp.wrapS = this.wrapS;
+				tmp.wrapT = this.wrapT;
+				
+				tmp.magFilter = this.magFilter;
+				tmp.minFilter = this.minFilter;
+				
+				tmp.anisotropy = this.anisotropy;
+				
+				tmp.format = this.format;
+				tmp.type = this.type;
+				
+				tmp.offset = this.offset.clone();
+				tmp.repeat = this.repeat.clone();
+				
+				return tmp;
+				
+			}
+
+		};
+
+	}
 
 	this.depthBuffer = options.depthBuffer !== undefined ? options.depthBuffer : true;
 	this.stencilBuffer = options.stencilBuffer !== undefined ? options.stencilBuffer : true;
+	this.depthTexture = options.depthTexture;
 
 	this.generateMipmaps = true;
 
@@ -22979,19 +23097,8 @@ THREE.WebGLRenderTarget.prototype = {
 
 		var tmp = new THREE.WebGLRenderTarget( this.width, this.height );
 
-		tmp.wrapS = this.wrapS;
-		tmp.wrapT = this.wrapT;
-
-		tmp.magFilter = this.magFilter;
-		tmp.minFilter = this.minFilter;
-
-		tmp.anisotropy = this.anisotropy;
-
-		tmp.offset.copy( this.offset );
-		tmp.repeat.copy( this.repeat );
-
-		tmp.format = this.format;
-		tmp.type = this.type;
+		tmp.texture = this.texture.clone();
+		if (this.depthTexture) tmp.depthTexture = this.depthTexture.clone();
 
 		tmp.depthBuffer = this.depthBuffer;
 		tmp.stencilBuffer = this.stencilBuffer;
